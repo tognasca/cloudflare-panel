@@ -49,3 +49,20 @@
 - [x] Frontend: atualizar help text com sintaxe simplificada
 - [x] Testes: validar executeCommand com zona padrão (13 testes passando)
 - [x] Checkpoint: salvar versão com seletor de zona
+
+
+## Feature: Sistema de Deployment Automático
+- [x] Schema: tabela `sites_config` para armazenar sites do YAML
+- [x] Schema: tabela `deployments` para histórico de deployments
+- [x] Schema: tabela `deployment_logs` para logs em tempo real
+- [x] DB helpers: getSitesConfig, saveSitesConfig, getDeployments, saveDeploymentLog
+- [x] YAML Parser: ler arquivo YAML com estrutura (name, type, port, docker, domain)
+- [x] Cloudflare Tunnel: criar/gerenciar tunnels para expor containers locais
+- [x] Cloudflare Pages: upload de sites estáticos e builds
+- [x] tRPC router: deployment.uploadYaml, deployment.listSites, deployment.startSite
+- [x] tRPC router: deployment.stopSite, deployment.deployToTunnel, deployment.deployToPages
+- [x] Frontend: página Deploy com upload YAML e dashboard de status
+- [x] Frontend: cards de site com status, logs, botões start/stop
+- [x] Testes: YAML parser, deployment flow (7 testes passando)
+- [x] Sidebar: adicionado item DEPLOY
+- [ ] Checkpoint: salvar versão com deployment automático

@@ -12,12 +12,14 @@ import {
   Wifi,
   WifiOff,
   ChevronRight,
+  Cloud,
 } from "lucide-react";
 
 const navItems = [
   { path: "/", label: "DASHBOARD", icon: LayoutDashboard, desc: "Visão Geral" },
   { path: "/dns", label: "DNS RECORDS", icon: Globe, desc: "Registros DNS" },
   { path: "/services", label: "SERVIÇOS", icon: Server, desc: "Zonas & Status" },
+  { path: "/deploy", label: "DEPLOY", icon: Cloud, desc: "Upload YAML" },
   { path: "/terminal", label: "TERMINAL", icon: TerminalIcon, desc: "Console CLI" },
   { path: "/settings", label: "CONFIG", icon: Settings, desc: "API Token" },
 ];

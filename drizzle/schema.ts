@@ -41,3 +41,53 @@ export const commandHistory = mysqlTable("command_history", {
 
 export type CommandHistory = typeof commandHistory.$inferSelect;
 export type InsertCommandHistory = typeof commandHistory.$inferInsert;
+
+// Sites configuration from YAML
+export const sitesConfig = mysqlTable("sites_config", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  type: mysqlEnum("type", ["react", "angular", "mvc", "static", "node", "python"]).notNull(),
+  port: int("port").notNull(),
+  dockerEnabled: int("dockerEnabled").default(1).notNull(),
+  domain: varchar("domain", { length: 255 }).notNull(),
+  dockerImage: varchar("dockerImage", { length: 255 }),
+  dockerfile: text("dockerfile"),
+  buildCommand: varchar("buildCommand", { length: 255 }),
+  startCommand: varchar("startCommand", { length: 255 }),
+  status: mysqlEnum("status", ["stopped", "running", "error"]).default("stopped").notNull(),
+  deploymentMethod: mysqlEnum("deploymentMethod", ["tunnel", "pages", "workers"]).default("tunnel").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type SitesConfig = typeof sitesConfig.$inferSelect;
+export type InsertSitesConfig = typeof sitesConfig.$inferInsert;
+
+// Deployment history
+export const deployments = mysqlTable("deployments", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  siteId: int("siteId").notNull(),
+  status: mysqlEnum("status", ["pending", "in_progress", "success", "error"]).default("pending").notNull(),
+  deploymentMethod: mysqlEnum("deploymentMethod", ["tunnel", "pages", "workers"]).notNull(),
+  tunnelUrl: varchar("tunnelUrl", { length: 255 }),
+  errorMessage: text("errorMessage"),
+  startedAt: timestamp("startedAt").defaultNow().notNull(),
+  completedAt: timestamp("completedAt"),
+});
+
+export type Deployments = typeof deployments.$inferSelect;
+export type InsertDeployments = typeof deployments.$inferInsert;
+
+// Deployment logs
+export const deploymentLogs = mysqlTable("deployment_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  deploymentId: int("deploymentId").notNull(),
+  level: mysqlEnum("level", ["info", "warn", "error", "success"]).default("info").notNull(),
+  message: text("message").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type DeploymentLogs = typeof deploymentLogs.$inferSelect;
+export type InsertDeploymentLogs = typeof deploymentLogs.$inferInsert;

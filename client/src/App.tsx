@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import DnsRecords from "./pages/DnsRecords";
 import Services from "./pages/Services";
 import Terminal from "./pages/Terminal";
+import Deploy from "./pages/Deploy";
 import Settings from "./pages/Settings";
 import PanelLayout from "./components/PanelLayout";
 
@@ -19,6 +20,7 @@ function Router() {
         <Route path={"/dns"} component={DnsRecords} />
         <Route path={"/services"} component={Services} />
         <Route path={"/terminal"} component={Terminal} />
+        <Route path={"/deploy"} component={Deploy} />
         <Route path={"/settings"} component={Settings} />
         <Route path={"/404"} component={NotFound} />
         <Route component={NotFound} />
