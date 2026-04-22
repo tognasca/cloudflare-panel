@@ -4,34 +4,46 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import Home from "./pages/Home";
+import Dashboard from "./pages/Dashboard";
+import DnsRecords from "./pages/DnsRecords";
+import Services from "./pages/Services";
+import Terminal from "./pages/Terminal";
+import Settings from "./pages/Settings";
+import PanelLayout from "./components/PanelLayout";
 
 function Router() {
-  // make sure to consider if you need authentication for certain routes
   return (
-    <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
-      <Route component={NotFound} />
-    </Switch>
+    <PanelLayout>
+      <Switch>
+        <Route path={"/"} component={Dashboard} />
+        <Route path={"/dns"} component={DnsRecords} />
+        <Route path={"/services"} component={Services} />
+        <Route path={"/terminal"} component={Terminal} />
+        <Route path={"/settings"} component={Settings} />
+        <Route path={"/404"} component={NotFound} />
+        <Route component={NotFound} />
+      </Switch>
+    </PanelLayout>
   );
 }
-
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
 
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
+      <ThemeProvider defaultTheme="dark">
         <TooltipProvider>
-          <Toaster />
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              style: {
+                background: "oklch(0.14 0.07 250)",
+                border: "1px solid oklch(0.28 0.10 240)",
+                color: "oklch(0.96 0.02 220)",
+                fontFamily: "'Rajdhani', sans-serif",
+                fontWeight: 600,
+              },
+            }}
+          />
           <Router />
         </TooltipProvider>
       </ThemeProvider>

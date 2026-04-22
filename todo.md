@@ -1,0 +1,42 @@
+# Cloudflare DNS Panel - TODO
+
+## Schema & Backend
+- [x] Schema: tabela `cf_settings` para armazenar token e zone_id do Cloudflare por usuário
+- [x] Schema: tabela `command_history` para histórico do terminal
+- [x] Migration SQL aplicada via drizzle-kit migrate
+- [x] DB helpers: getCfSettings, saveCfSettings, saveCommandHistory, getCommandHistory
+- [x] tRPC router: cloudflare.getSettings, cloudflare.saveSettings
+- [x] tRPC router: cloudflare.listZones
+- [x] tRPC router: cloudflare.getZoneDetails
+- [x] tRPC router: cloudflare.pauseZone / cloudflare.unpauseZone
+- [x] tRPC router: cloudflare.listDnsRecords
+- [x] tRPC router: cloudflare.createDnsRecord
+- [x] tRPC router: cloudflare.updateDnsRecord
+- [x] tRPC router: cloudflare.deleteDnsRecord
+- [x] tRPC router: terminal.executeCommand (cloudflare.executeCommand)
+- [x] tRPC router: terminal.getHistory (cloudflare.getHistory)
+
+## Frontend
+- [x] Design system: CSS variables blueprint/CAD (azul royal, grade, linhas brancas)
+- [x] DashboardLayout customizado com sidebar técnica (PanelLayout)
+- [x] Página: Dashboard (visão geral das zonas)
+- [x] Página: DNS Records (listagem, criar, editar, deletar)
+- [x] Página: Serviços (subir/parar zonas)
+- [x] Página: Terminal (console integrado com histórico)
+- [x] Página: Configurações (token API Cloudflare editável)
+- [x] Componente: DNSRecordForm (formulário dinâmico A, CNAME, MX, TXT, etc.)
+- [x] Componente: StatusBadge (sucesso, erro, carregando - inline)
+- [x] Componente: ZoneCard (card de zona com status)
+- [x] Componente: TerminalConsole (input + output em tempo real)
+- [x] Feedback em tempo real (toast + inline status)
+
+## Testes
+- [x] Teste: cloudflare.saveSettings valida token obrigatório
+- [x] Teste: cloudflare.hasToken retorna false/true corretamente
+- [x] Teste: cloudflare.getSettings mascara token
+- [x] Teste: cloudflare.listZones lança erro sem token
+- [x] Teste: cloudflare.__KEEP__ preserva token existente
+
+## Entrega
+- [x] Checkpoint salvo
+- [x] Painel entregue ao usuário
