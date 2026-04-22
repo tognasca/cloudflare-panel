@@ -1,7 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Upload, Play, Square, Zap, Cloud, AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { Upload, Play, Square, Zap, Cloud, AlertCircle, CheckCircle, Clock, Eye } from "lucide-react";
+import LogViewer, { type LogEntry } from "@/components/LogViewer";
 
 type Site = {
   id: number;
@@ -17,6 +18,9 @@ type Site = {
 export default function Deploy() {
   const [yamlContent, setYamlContent] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedSiteId, setSelectedSiteId] = useState<number | null>(null);
+  const [selectedDeploymentId, setSelectedDeploymentId] = useState<number | null>(null);
+  const [showLogViewer, setShowLogViewer] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const uploadYamlMut = trpc.deployment.uploadYaml.useMutation();
@@ -25,8 +29,14 @@ export default function Deploy() {
   const stopSiteMut = trpc.deployment.stopSite.useMutation();
   const deployToTunnelMut = trpc.deployment.deployToTunnel.useMutation();
   const deployToPagesMut = trpc.deployment.deployToPages.useMutation();
+  const getDeploymentLogsQuery = trpc.deployment.getDeploymentLogs.useQuery(
+    { deploymentId: selectedDeploymentId || 0 },
+    { enabled: selectedDeploymentId !== null && showLogViewer }
+  );
 
   const sites = (listSitesQuery.data as Site[]) || [];
+  const logs = (getDeploymentLogsQuery.data as LogEntry[]) || [];
+  const selectedSite = sites.find(s => s.id === selectedSiteId);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -61,7 +71,10 @@ export default function Deploy() {
 
   const handleStartSite = async (siteId: number, siteName: string) => {
     try {
-      await startSiteMut.mutateAsync({ siteId });
+      const result = await startSiteMut.mutateAsync({ siteId });
+      setSelectedSiteId(siteId);
+      setSelectedDeploymentId(result.deploymentId || siteId);
+      setShowLogViewer(true);
       toast.success(`✓ ${siteName} iniciado`);
       listSitesQuery.refetch();
     } catch (err) {
@@ -82,6 +95,9 @@ export default function Deploy() {
   const handleDeployToTunnel = async (siteId: number, siteName: string) => {
     try {
       const result = await deployToTunnelMut.mutateAsync({ siteId });
+      setSelectedSiteId(siteId);
+      setSelectedDeploymentId(result.deploymentId || siteId);
+      setShowLogViewer(true);
       toast.success(`✓ Tunnel criado: ${result.tunnelUrl}`);
       listSitesQuery.refetch();
     } catch (err) {
@@ -92,11 +108,20 @@ export default function Deploy() {
   const handleDeployToPages = async (siteId: number, siteName: string) => {
     try {
       const result = await deployToPagesMut.mutateAsync({ siteId });
+      setSelectedSiteId(siteId);
+      setSelectedDeploymentId(result.deploymentId || siteId);
+      setShowLogViewer(true);
       toast.success(`✓ Deployado em ${result.url}`);
       listSitesQuery.refetch();
     } catch (err) {
       toast.error(`Erro: ${err instanceof Error ? err.message : String(err)}`);
     }
+  };
+
+  const handleViewLogs = (siteId: number, deploymentId: number) => {
+    setSelectedSiteId(siteId);
+    setSelectedDeploymentId(deploymentId);
+    setShowLogViewer(true);
   };
 
   const getStatusIcon = (status: string) => {
@@ -278,6 +303,15 @@ export default function Deploy() {
                       PAGES
                     </button>
                   )}
+
+                  <button
+                    onClick={() => handleViewLogs(site.id, site.id)}
+                    className="flex items-center gap-1 px-2 py-1 font-mono-tech text-xs transition-all ml-auto"
+                    style={{ background: "oklch(0.80 0.18 75 / 0.2)", border: "1px solid oklch(0.80 0.18 75 / 0.4)", color: "oklch(0.80 0.18 75)" }}
+                  >
+                    <Eye size={10} />
+                    LOGS
+                  </button>
                 </div>
               </div>
             ))}
@@ -318,6 +352,15 @@ export default function Deploy() {
     deploymentMethod: tunnel`}
         </pre>
       </div>
+
+      {/* Log Viewer Modal */}
+      <LogViewer
+        logs={logs}
+        isOpen={showLogViewer}
+        onClose={() => setShowLogViewer(false)}
+        siteName={selectedSite?.name || "Site"}
+        isLoading={getDeploymentLogsQuery.isLoading}
+      />
     </div>
   );
 }

@@ -65,4 +65,17 @@
 - [x] Frontend: cards de site com status, logs, botões start/stop
 - [x] Testes: YAML parser, deployment flow (7 testes passando)
 - [x] Sidebar: adicionado item DEPLOY
-- [ ] Checkpoint: salvar versão com deployment automático
+- [x] Checkpoint: salvar versão com deployment automático
+
+
+## Feature: Visualizador de Logs em Tempo Real
+- [x] Frontend: componente LogViewer para exibir logs de deployment
+- [x] Frontend: modal/drawer para abrir logs de um site específico
+- [x] Frontend: auto-scroll para novos logs
+- [x] Frontend: filtro por nível (info, warn, error, success)
+- [x] Frontend: botão "Ver Logs" em cada card de site
+- [x] Backend: melhorar saveDeploymentLog para registrar logs de inicialização
+- [x] Backend: adicionar deploymentId nas respostas dos mutations
+- [x] Frontend: integração com Deploy page para abrir logs após ações
+- [x] Testes: 23 testes passando (sem regressão)
+- [x] Checkpoint: salvar versão com visualizador de logs

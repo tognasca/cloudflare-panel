@@ -131,7 +131,7 @@ export const deploymentRouter = router({
           tunnelUrl: `http://localhost:${site.port}`,
         });
 
-        return { success: true, message: `${site.name} iniciado` };
+        return { success: true, message: `${site.name} iniciado`, deploymentId };
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         await deploymentDb.saveDeploymentLog({
@@ -205,7 +205,7 @@ export const deploymentRouter = router({
           completedAt: new Date(),
         });
 
-        return { success: true, tunnelUrl };
+        return { success: true, tunnelUrl, deploymentId };
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         await deploymentDb.updateDeployment(deploymentId, {
@@ -269,7 +269,7 @@ export const deploymentRouter = router({
           completedAt: new Date(),
         });
 
-        return { success: true, url: pagesUrl };
+        return { success: true, url: pagesUrl, deploymentId };
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         await deploymentDb.updateDeployment(deploymentId, {
