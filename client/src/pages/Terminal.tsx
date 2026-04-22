@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
-import { Terminal as TerminalIcon, Send, Trash2, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
+import { Terminal as TerminalIcon, Send, Trash2, ChevronRight, Globe, Check } from "lucide-react";
 
 type HistoryEntry = {
   id: string;
@@ -10,29 +11,31 @@ type HistoryEntry = {
   timestamp: Date;
 };
 
+type Zone = { id: string; name: string; status: string; paused: boolean };
+
 const HELP_TEXT = `╔══════════════════════════════════════════════════════════════╗
-║         CF PANEL - CLOUDFLARE CLI TERMINAL v1.0              ║
+║         CF PANEL - CLOUDFLARE CLI TERMINAL v2.0              ║
 ║         DOMÍNIO BASE: ademar.tognasca.com.br                 ║
 ╚══════════════════════════════════════════════════════════════╝
 
 COMANDOS DISPONÍVEIS:
   zones list                     - Listar todas as zonas
-  zone pause <zone_id>           - Pausar zona
-  zone unpause <zone_id>         - Ativar zona
-  zone info <zone_id>            - Detalhes da zona
-  dns list <zone_id>             - Listar registros DNS
-  dns create <zone_id> <type> <name> <content> [ttl] [proxied]
-                                 - Criar registro DNS
-  dns delete <zone_id> <record_id>
-                                 - Deletar registro DNS
+  zone pause [zone_id]           - Pausar zona (usa padrão se omitido)
+  zone unpause [zone_id]         - Ativar zona (usa padrão se omitido)
+  zone info [zone_id]            - Detalhes da zona (usa padrão se omitido)
+  dns list [zone_id]             - Listar registros DNS (usa padrão se omitido)
+  dns create [zone_id] <type> <name> <content> [ttl] [proxied]
+                                 - Criar registro DNS (usa padrão se omitido)
+  dns delete [zone_id] <record_id>
+                                 - Deletar registro DNS (usa padrão se omitido)
   clear                          - Limpar terminal
   help                           - Exibir esta ajuda
 
-EXEMPLOS:
-  zones list
-  dns list abc123def456
-  dns create abc123 A www 192.168.1.1 3600 false
-  zone pause abc123def456
+EXEMPLOS (com zona padrão selecionada):
+  dns list
+  dns create A www 192.168.1.1 3600 false
+  zone pause
+  zone info
 `;
 
 export default function Terminal() {
@@ -49,11 +52,13 @@ export default function Terminal() {
   const [cmdHistory, setCmdHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [isRunning, setIsRunning] = useState(false);
+  const [selectedZoneId, setSelectedZoneId] = useState<string>("");
   const outputRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const execMut = trpc.cloudflare.executeCommand.useMutation();
-  const historyQuery = trpc.cloudflare.getHistory.useQuery(undefined, { retry: false });
+  const zonesQuery = trpc.cloudflare.listZones.useQuery(undefined, { retry: false });
+  const zones = (zonesQuery.data as Zone[]) || [];
 
   useEffect(() => {
     if (outputRef.current) {
@@ -89,14 +94,19 @@ export default function Terminal() {
     setIsRunning(true);
 
     try {
-      const result = await execMut.mutateAsync({ command: trimmed });
-      setHistory(prev =>
-        prev.map(e =>
-          e.id === entryId
-            ? { ...e, output: result.output, status: result.status }
-            : e
-        )
-      );
+      const result = await execMut.mutateAsync({ command: trimmed, defaultZoneId: selectedZoneId });
+      
+      if (result.output === "__CLEAR__") {
+        setHistory([]);
+      } else {
+        setHistory(prev =>
+          prev.map(e =>
+            e.id === entryId
+              ? { ...e, output: result.output, status: result.status }
+              : e
+          )
+        );
+      }
     } catch (err) {
       setHistory(prev =>
         prev.map(e =>
@@ -126,6 +136,8 @@ export default function Terminal() {
     }
   };
 
+  const selectedZone = zones.find(z => z.id === selectedZoneId);
+
   return (
     <div className="p-6 min-h-full flex flex-col">
       {/* Header */}
@@ -139,6 +151,55 @@ export default function Terminal() {
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Zone selector */}
+      <div
+        className="mb-4 p-4 flex items-center justify-between flex-wrap gap-3"
+        style={{ background: "oklch(0.14 0.07 250)", border: "1px solid oklch(0.28 0.10 240)" }}
+      >
+        <div className="flex items-center gap-3">
+          <Globe size={14} className="text-primary" />
+          <span className="font-display text-xs tracking-wider">ZONA PADRÃO:</span>
+        </div>
+        {zonesQuery.isLoading ? (
+          <span className="font-mono-tech text-xs text-muted-foreground">Carregando zonas...</span>
+        ) : zonesQuery.error ? (
+          <span className="font-mono-tech text-xs" style={{ color: "oklch(0.60 0.22 25)" }}>
+            Erro ao carregar zonas
+          </span>
+        ) : (
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => setSelectedZoneId("")}
+              className="px-3 py-1 font-mono-tech text-xs transition-all flex items-center gap-1"
+              style={{
+                background: !selectedZoneId ? "oklch(0.72 0.18 210 / 0.2)" : "transparent",
+                border: `1px solid ${!selectedZoneId ? "oklch(0.72 0.18 210)" : "oklch(0.28 0.10 240)"}`,
+                color: !selectedZoneId ? "oklch(0.90 0.10 210)" : "oklch(0.65 0.06 230)",
+              }}
+            >
+              {!selectedZoneId && <Check size={10} />}
+              NENHUMA
+            </button>
+            {zones.map(zone => (
+              <button
+                key={zone.id}
+                onClick={() => setSelectedZoneId(zone.id)}
+                className="px-3 py-1 font-mono-tech text-xs transition-all flex items-center gap-1"
+                style={{
+                  background: selectedZoneId === zone.id ? "oklch(0.72 0.18 210 / 0.2)" : "transparent",
+                  border: `1px solid ${selectedZoneId === zone.id ? "oklch(0.72 0.18 210)" : "oklch(0.28 0.10 240)"}`,
+                  color: selectedZoneId === zone.id ? "oklch(0.90 0.10 210)" : "oklch(0.65 0.06 230)",
+                }}
+                title={zone.id}
+              >
+                {selectedZoneId === zone.id && <Check size={10} />}
+                {zone.name.split(".")[0]}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Terminal window */}
@@ -159,6 +220,11 @@ export default function Terminal() {
             </div>
             <span className="font-mono-tech text-xs text-muted-foreground opacity-60">
               cf-panel — bash — 80×24
+              {selectedZone && (
+                <span style={{ color: "oklch(0.72 0.18 210)" }}>
+                  {" "}| zona: {selectedZone.name}
+                </span>
+              )}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -257,14 +323,16 @@ export default function Terminal() {
         <div className="flex flex-wrap gap-2">
           {[
             "zones list",
+            "dns list",
             "help",
           ].map(cmd => (
             <button
               key={cmd}
               onClick={() => runCommand(cmd)}
-              disabled={isRunning}
+              disabled={isRunning || (cmd !== "zones list" && cmd !== "help" && !selectedZoneId)}
               className="flex items-center gap-1 px-3 py-1 font-mono-tech text-xs transition-all hover:text-primary disabled:opacity-40"
               style={{ background: "oklch(0.14 0.07 250)", border: "1px solid oklch(0.28 0.10 240)", color: "oklch(0.65 0.06 230)" }}
+              title={cmd !== "zones list" && cmd !== "help" && !selectedZoneId ? "Selecione uma zona padrão" : ""}
             >
               <ChevronRight size={10} />
               {cmd}

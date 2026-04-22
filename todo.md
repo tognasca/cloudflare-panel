@@ -40,3 +40,12 @@
 ## Entrega
 - [x] Checkpoint salvo
 - [x] Painel entregue ao usuário
+
+## Feature: Seletor de Zona no Terminal
+- [x] Backend: atualizar executeCommand para aceitar defaultZoneId opcional
+- [x] Backend: adaptar comandos dns list/create/delete para usar zona padrão
+- [x] Frontend: adicionar seletor de zona no Terminal
+- [x] Frontend: exibir zona selecionada no prompt do terminal
+- [x] Frontend: atualizar help text com sintaxe simplificada
+- [x] Testes: validar executeCommand com zona padrão (13 testes passando)
+- [x] Checkpoint: salvar versão com seletor de zona

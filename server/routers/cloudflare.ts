@@ -156,7 +156,7 @@ export const cloudflareRouter = router({
 
   // Terminal
   executeCommand: protectedProcedure
-    .input(z.object({ command: z.string().min(1) }))
+    .input(z.object({ command: z.string().min(1), defaultZoneId: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
       const settings = await getCfSettings(ctx.user.id);
       if (!settings?.apiToken) throw new Error("Token da API não configurado. Acesse Configurações.");
@@ -164,49 +164,71 @@ export const cloudflareRouter = router({
       const cmd = input.command.trim().toLowerCase();
       const parts = cmd.split(/\s+/);
       const action = parts[0];
+      const defaultZone = input.defaultZoneId;
+      const zoneInfo = defaultZone ? ` (zona: ${defaultZone.slice(0, 8)}...)` : "";
 
       let output = "";
       let status: "success" | "error" = "success";
 
       try {
         if (action === "help") {
-          output = `Comandos disponíveis:
+          output = `Comandos disponíveis${zoneInfo}:
   zones list                     - Listar todas as zonas
-  zone pause <zone_id>           - Pausar zona
-  zone unpause <zone_id>         - Ativar zona
-  dns list <zone_id>             - Listar registros DNS
-  dns create <zone_id> <type> <name> <content> [ttl] [proxied]
-                                 - Criar registro DNS
-  dns delete <zone_id> <record_id>
-                                 - Deletar registro DNS
-  zone info <zone_id>            - Detalhes da zona
+  zone pause [zone_id]           - Pausar zona (usa padrão se omitido)
+  zone unpause [zone_id]         - Ativar zona (usa padrão se omitido)
+  zone info [zone_id]            - Detalhes da zona (usa padrão se omitido)
+  dns list [zone_id]             - Listar registros DNS (usa padrão se omitido)
+  dns create [zone_id] <type> <name> <content> [ttl] [proxied]
+                                 - Criar registro DNS (usa padrão se omitido)
+  dns delete [zone_id] <record_id>
+                                 - Deletar registro DNS (usa padrão se omitido)
   clear                          - Limpar terminal
   help                           - Exibir esta ajuda`;
         } else if (action === "zones" && parts[1] === "list") {
           const zones = await cfFetch(settings.apiToken, "/zones") as Array<{ id: string; name: string; status: string; paused: boolean }>;
           output = zones.map(z => `[${z.paused ? "PAUSADO" : z.status.toUpperCase()}] ${z.name} (${z.id})`).join("\n");
           if (!output) output = "Nenhuma zona encontrada.";
-        } else if (action === "zone" && parts[1] === "pause" && parts[2]) {
-          await cfFetch(settings.apiToken, `/zones/${parts[2]}/pause`, { method: "POST" });
-          output = `✓ Zona ${parts[2]} pausada com sucesso.`;
-        } else if (action === "zone" && parts[1] === "unpause" && parts[2]) {
-          await cfFetch(settings.apiToken, `/zones/${parts[2]}/unpause`, { method: "POST" });
-          output = `✓ Zona ${parts[2]} ativada com sucesso.`;
-        } else if (action === "zone" && parts[1] === "info" && parts[2]) {
-          const zone = await cfFetch(settings.apiToken, `/zones/${parts[2]}`) as { id: string; name: string; status: string; paused: boolean; name_servers: string[]; plan: { name: string } };
+        } else if (action === "zone" && parts[1] === "pause") {
+          const zoneId = parts[2] || defaultZone;
+          if (!zoneId) throw new Error("Zone ID obrigatório ou selecione uma zona padrão.");
+          await cfFetch(settings.apiToken, `/zones/${zoneId}/pause`, { method: "POST" });
+          output = `✓ Zona pausada com sucesso.`;
+        } else if (action === "zone" && parts[1] === "unpause") {
+          const zoneId = parts[2] || defaultZone;
+          if (!zoneId) throw new Error("Zone ID obrigatório ou selecione uma zona padrão.");
+          await cfFetch(settings.apiToken, `/zones/${zoneId}/unpause`, { method: "POST" });
+          output = `✓ Zona ativada com sucesso.`;
+        } else if (action === "zone" && parts[1] === "info") {
+          const zoneId = parts[2] || defaultZone;
+          if (!zoneId) throw new Error("Zone ID obrigatório ou selecione uma zona padrão.");
+          const zone = await cfFetch(settings.apiToken, `/zones/${zoneId}`) as { id: string; name: string; status: string; paused: boolean; name_servers: string[]; plan: { name: string } };
           output = `Zona: ${zone.name}\nID: ${zone.id}\nStatus: ${zone.status}\nPausado: ${zone.paused}\nPlano: ${zone.plan?.name}\nName Servers: ${zone.name_servers?.join(", ")}`;
-        } else if (action === "dns" && parts[1] === "list" && parts[2]) {
-          const records = await cfFetch(settings.apiToken, `/zones/${parts[2]}/dns_records?per_page=100`) as Array<{ type: string; name: string; content: string; ttl: number; proxied: boolean }>;
+        } else if (action === "dns" && parts[1] === "list") {
+          const zoneId = parts[2] || defaultZone;
+          if (!zoneId) throw new Error("Zone ID obrigatório ou selecione uma zona padrão.");
+          const records = await cfFetch(settings.apiToken, `/zones/${zoneId}/dns_records?per_page=100`) as Array<{ type: string; name: string; content: string; ttl: number; proxied: boolean }>;
           output = records.map(r => `${r.type.padEnd(6)} ${r.name.padEnd(40)} ${r.content} TTL:${r.ttl} Proxy:${r.proxied}`).join("\n");
           if (!output) output = "Nenhum registro DNS encontrado.";
-        } else if (action === "dns" && parts[1] === "create" && parts.length >= 6) {
-          const [, , zoneId, type, name, content, ttlStr, proxiedStr] = parts;
+        } else if (action === "dns" && parts[1] === "create") {
+          // Detectar se o segundo argumento é zone_id ou type
+          const isZoneId = parts[2] && /^[a-z0-9]{32}$/i.test(parts[2]);
+          const zoneId = isZoneId ? parts[2] : defaultZone;
+          const typeIdx = isZoneId ? 3 : 2;
+          if (!zoneId) throw new Error("Zone ID obrigatório ou selecione uma zona padrão.");
+          if (parts.length < typeIdx + 3) throw new Error("Sintaxe: dns create [zone_id] <type> <name> <content> [ttl] [proxied]");
+          const [type, name, content, ttlStr, proxiedStr] = [parts[typeIdx], parts[typeIdx + 1], parts[typeIdx + 2], parts[typeIdx + 3], parts[typeIdx + 4]];
           const body = { type: type.toUpperCase(), name, content, ttl: parseInt(ttlStr || "1"), proxied: proxiedStr === "true" };
           await cfFetch(settings.apiToken, `/zones/${zoneId}/dns_records`, { method: "POST", body: JSON.stringify(body) });
           output = `✓ Registro DNS criado: ${type.toUpperCase()} ${name} → ${content}`;
-        } else if (action === "dns" && parts[1] === "delete" && parts[2] && parts[3]) {
-          await cfFetch(settings.apiToken, `/zones/${parts[2]}/dns_records/${parts[3]}`, { method: "DELETE" });
-          output = `✓ Registro ${parts[3]} deletado da zona ${parts[2]}.`;
+        } else if (action === "dns" && parts[1] === "delete") {
+          // Detectar se o segundo argumento é zone_id ou record_id
+          const isZoneId = parts[2] && /^[a-z0-9]{32}$/i.test(parts[2]);
+          const zoneId = isZoneId ? parts[2] : defaultZone;
+          const recordIdIdx = isZoneId ? 3 : 2;
+          if (!zoneId) throw new Error("Zone ID obrigatório ou selecione uma zona padrão.");
+          if (!parts[recordIdIdx]) throw new Error("Record ID obrigatório.");
+          await cfFetch(settings.apiToken, `/zones/${zoneId}/dns_records/${parts[recordIdIdx]}`, { method: "DELETE" });
+          output = `✓ Registro deletado com sucesso.`;
         } else if (action === "clear") {
           output = "__CLEAR__";
         } else {

@@ -188,3 +188,50 @@ describe("cloudflare.executeCommand", () => {
     expect(result.status).toBe("success");
   });
 });
+
+describe("cloudflare.executeCommand - defaultZoneId", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("throws error when dns list is called without zone_id and no defaultZoneId", async () => {
+    vi.mocked(db.getCfSettings).mockResolvedValue({
+      id: 1, userId: 42, apiToken: "valid-token", accountId: null,
+      baseDomain: "Ademar.tognasca.com.br", createdAt: new Date(), updatedAt: new Date(),
+    });
+    vi.mocked(db.saveCommandHistory).mockResolvedValue(undefined as never);
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.cloudflare.executeCommand({ command: "dns list" });
+    expect(result.status).toBe("error");
+    expect(result.output).toMatch(/Zone ID obrigat/);
+  });
+
+  it("includes defaultZoneId info in help output when provided", async () => {
+    vi.mocked(db.getCfSettings).mockResolvedValue({
+      id: 1, userId: 42, apiToken: "valid-token", accountId: null,
+      baseDomain: "Ademar.tognasca.com.br", createdAt: new Date(), updatedAt: new Date(),
+    });
+    vi.mocked(db.saveCommandHistory).mockResolvedValue(undefined as never);
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.cloudflare.executeCommand({
+      command: "help",
+      defaultZoneId: "zone123abcdef1234567890abcdef123456",
+    });
+    expect(result.status).toBe("success");
+    expect(result.output).toContain("(zona:");
+  });
+
+  it("does not include zone info in help when no defaultZoneId", async () => {
+    vi.mocked(db.getCfSettings).mockResolvedValue({
+      id: 1, userId: 42, apiToken: "valid-token", accountId: null,
+      baseDomain: "Ademar.tognasca.com.br", createdAt: new Date(), updatedAt: new Date(),
+    });
+    vi.mocked(db.saveCommandHistory).mockResolvedValue(undefined as never);
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.cloudflare.executeCommand({ command: "help" });
+    expect(result.status).toBe("success");
+    expect(result.output).toContain("Comandos disponíveis");
+    expect(result.output).not.toContain("zona:");
+  });
+});
