@@ -1,4 +1,4 @@
-import "dotenv/config";
+import 'dotenv/config';
 import express from "express";
 import { createServer } from "http";
 import net from "net";
@@ -35,19 +35,20 @@ async function startServer() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
-  registerOAuthRoutes(app);
+  // registerOAuthRoutes(app);
   // tRPC API
   app.use(
     "/api/trpc",
     createExpressMiddleware({
       router: appRouter,
       createContext,
+      onError({ error, path }) {
+        console.error(`[tRPC ERROR] ${path}:`, error.message, error.cause);
+      },
     })
   );
   // development mode uses Vite, production mode uses static files
-  if (process.env.NODE_ENV === "development") {
-    await setupVite(app, server);
-  } else {
+  if (process.env.NODE_ENV === "production") {
     serveStatic(app);
   }
 

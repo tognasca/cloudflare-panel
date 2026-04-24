@@ -25,7 +25,16 @@ const navItems = [
 ];
 
 export default function PanelLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading, isAuthenticated, logout } = useAuth();
+  const loading = false;
+const isAuthenticated = true;
+
+const user = {
+  id: "dev",
+  name: "Developer",
+  email: "dev@local"
+};
+
+const logout = () => {};
   const handleLogout = () => { logout(); };
   const [location, navigate] = useLocation();
   const hasTokenQuery = trpc.cloudflare.hasToken.useQuery(undefined, { enabled: isAuthenticated });
@@ -45,49 +54,49 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen blueprint-bg flex items-center justify-center">
-        <div className="cad-frame p-10 text-center" style={{ background: "oklch(0.13 0.07 250 / 0.95)", border: "1px solid oklch(0.28 0.10 240)" }}>
-          {/* Corner decorations */}
-          <div className="absolute top-3 left-3 text-primary font-mono-tech text-xs opacity-60">SYS.AUTH</div>
-          <div className="absolute top-3 right-3 text-primary font-mono-tech text-xs opacity-60">v1.0.0</div>
+  // if (!isAuthenticated) {
+  //   return (
+  //     <div className="min-h-screen blueprint-bg flex items-center justify-center">
+  //       <div className="cad-frame p-10 text-center" style={{ background: "oklch(0.13 0.07 250 / 0.95)", border: "1px solid oklch(0.28 0.10 240)" }}>
+  //         {/* Corner decorations */}
+  //         <div className="absolute top-3 left-3 text-primary font-mono-tech text-xs opacity-60">SYS.AUTH</div>
+  //         <div className="absolute top-3 right-3 text-primary font-mono-tech text-xs opacity-60">v1.0.0</div>
 
-          <div className="font-display text-primary text-3xl font-bold tracking-widest mb-2 text-glow">
-            CF PANEL
-          </div>
-          <div className="font-mono-tech text-muted-foreground text-xs tracking-widest mb-1">
-            CLOUDFLARE DNS MANAGEMENT SYSTEM
-          </div>
-          <div className="font-mono-tech text-primary text-xs tracking-widest mb-8 opacity-70">
-            DOMÍNIO BASE: ademar.tognasca.com.br
-          </div>
+  //         <div className="font-display text-primary text-3xl font-bold tracking-widest mb-2 text-glow">
+  //           CF PANEL
+  //         </div>
+  //         <div className="font-mono-tech text-muted-foreground text-xs tracking-widest mb-1">
+  //           CLOUDFLARE DNS MANAGEMENT SYSTEM
+  //         </div>
+  //         <div className="font-mono-tech text-primary text-xs tracking-widest mb-8 opacity-70">
+  //           DOMÍNIO BASE: ademartognasca.com.br
+  //         </div>
 
-          <div className="w-full h-px bg-border mb-8 relative">
-            <div className="absolute left-0 top-0 w-2 h-2 border-l border-t border-primary -translate-y-1/2" />
-            <div className="absolute right-0 top-0 w-2 h-2 border-r border-t border-primary -translate-y-1/2" />
-          </div>
+  //         <div className="w-full h-px bg-border mb-8 relative">
+  //           <div className="absolute left-0 top-0 w-2 h-2 border-l border-t border-primary -translate-y-1/2" />
+  //           <div className="absolute right-0 top-0 w-2 h-2 border-r border-t border-primary -translate-y-1/2" />
+  //         </div>
 
-          <a
-            href={getLoginUrl()}
-            className="inline-flex items-center gap-3 px-8 py-3 font-display text-sm tracking-widest font-bold uppercase transition-all duration-200 glow-blue"
-            style={{
-              background: "oklch(0.72 0.18 210)",
-              color: "oklch(0.10 0.05 250)",
-              border: "1px solid oklch(0.80 0.18 210)",
-            }}
-          >
-            <Wifi size={16} />
-            AUTENTICAR ACESSO
-          </a>
+  //         <a
+  //           href={getLoginUrl()}
+  //           className="inline-flex items-center gap-3 px-8 py-3 font-display text-sm tracking-widest font-bold uppercase transition-all duration-200 glow-blue"
+  //           style={{
+  //             background: "oklch(0.72 0.18 210)",
+  //             color: "oklch(0.10 0.05 250)",
+  //             border: "1px solid oklch(0.80 0.18 210)",
+  //           }}
+  //         >
+  //           <Wifi size={16} />
+  //           AUTENTICAR ACESSO
+  //         </a>
 
-          <div className="mt-6 font-mono-tech text-xs text-muted-foreground opacity-50">
-            SECURE CONNECTION REQUIRED
-          </div>
-        </div>
-      </div>
-    );
-  }
+  //         <div className="mt-6 font-mono-tech text-xs text-muted-foreground opacity-50">
+  //           SECURE CONNECTION REQUIRED
+  //         </div>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="min-h-screen flex blueprint-bg">
@@ -121,7 +130,7 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
         {/* Domain info */}
         <div className="px-5 py-3 border-b" style={{ borderColor: "oklch(0.20 0.08 250)" }}>
           <div className="font-mono-tech text-xs text-muted-foreground opacity-60 mb-1">DOMÍNIO BASE</div>
-          <div className="font-mono-tech text-xs text-primary truncate">ademar.tognasca.com.br</div>
+          <div className="font-mono-tech text-xs text-primary truncate">ademartognasca.com.br</div>
         </div>
 
         {/* Navigation */}

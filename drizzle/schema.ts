@@ -1,76 +1,80 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { pgEnum, pgTable, serial, text, timestamp, varchar, integer } from "drizzle-orm/pg-core";
 
-export const users = mysqlTable("users", {
-  id: int("id").autoincrement().primaryKey(),
+export const roleEnum = pgEnum("role", ["user", "admin"]);
+export const statusEnum = pgEnum("status", ["stopped", "running", "error"]);
+export const deployStatusEnum = pgEnum("deploy_status", ["pending", "in_progress", "success", "error"]);
+export const deployMethodEnum = pgEnum("deploy_method", ["tunnel", "pages", "workers"]);
+export const cmdStatusEnum = pgEnum("cmd_status", ["success", "error", "running"]);
+export const logLevelEnum = pgEnum("log_level", ["info", "warn", "error", "success"]);
+export const siteTypeEnum = pgEnum("site_type", ["react", "angular", "mvc", "static", "node", "python"]);
+
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  role: roleEnum("role").default("user").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// Cloudflare settings per user
-export const cfSettings = mysqlTable("cf_settings", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull(),
+export const cfSettings = pgTable("cf_settings", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
   apiToken: text("apiToken"),
   accountId: varchar("accountId", { length: 64 }),
-  baseDomain: varchar("baseDomain", { length: 255 }).default("Ademar.tognasca.com.br"),
+  baseDomain: varchar("baseDomain", { length: 255 }).default("ademartognasca.com.br"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type CfSettings = typeof cfSettings.$inferSelect;
 export type InsertCfSettings = typeof cfSettings.$inferInsert;
 
-// Terminal command history
-export const commandHistory = mysqlTable("command_history", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull(),
+export const commandHistory = pgTable("command_history", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
   command: text("command").notNull(),
   output: text("output"),
-  status: mysqlEnum("status", ["success", "error", "running"]).default("running").notNull(),
+  status: cmdStatusEnum("status").default("running").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
 export type CommandHistory = typeof commandHistory.$inferSelect;
 export type InsertCommandHistory = typeof commandHistory.$inferInsert;
 
-// Sites configuration from YAML
-export const sitesConfig = mysqlTable("sites_config", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull(),
+export const sitesConfig = pgTable("sites_config", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
   name: varchar("name", { length: 255 }).notNull(),
-  type: mysqlEnum("type", ["react", "angular", "mvc", "static", "node", "python"]).notNull(),
-  port: int("port").notNull(),
-  dockerEnabled: int("dockerEnabled").default(1).notNull(),
+  type: siteTypeEnum("type").notNull(),
+  port: integer("port").notNull(),
+  dockerEnabled: integer("dockerEnabled").default(1).notNull(),
   domain: varchar("domain", { length: 255 }).notNull(),
   dockerImage: varchar("dockerImage", { length: 255 }),
   dockerfile: text("dockerfile"),
   buildCommand: varchar("buildCommand", { length: 255 }),
   startCommand: varchar("startCommand", { length: 255 }),
-  status: mysqlEnum("status", ["stopped", "running", "error"]).default("stopped").notNull(),
-  deploymentMethod: mysqlEnum("deploymentMethod", ["tunnel", "pages", "workers"]).default("tunnel").notNull(),
+  status: statusEnum("status").default("stopped").notNull(),
+  deploymentMethod: deployMethodEnum("deploymentMethod").default("tunnel").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type SitesConfig = typeof sitesConfig.$inferSelect;
 export type InsertSitesConfig = typeof sitesConfig.$inferInsert;
 
-// Deployment history
-export const deployments = mysqlTable("deployments", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull(),
-  siteId: int("siteId").notNull(),
-  status: mysqlEnum("status", ["pending", "in_progress", "success", "error"]).default("pending").notNull(),
-  deploymentMethod: mysqlEnum("deploymentMethod", ["tunnel", "pages", "workers"]).notNull(),
+export const deployments = pgTable("deployments", {
+  id: serial("id").primaryKey(),
+  userId: text("userId").notNull(),
+  siteId: integer("siteId").notNull(),
+  status: deployStatusEnum("status").default("pending").notNull(),
+  deploymentMethod: deployMethodEnum("deploymentMethod").notNull(),
   tunnelUrl: varchar("tunnelUrl", { length: 255 }),
   errorMessage: text("errorMessage"),
   startedAt: timestamp("startedAt").defaultNow().notNull(),
@@ -80,11 +84,10 @@ export const deployments = mysqlTable("deployments", {
 export type Deployments = typeof deployments.$inferSelect;
 export type InsertDeployments = typeof deployments.$inferInsert;
 
-// Deployment logs
-export const deploymentLogs = mysqlTable("deployment_logs", {
-  id: int("id").autoincrement().primaryKey(),
-  deploymentId: int("deploymentId").notNull(),
-  level: mysqlEnum("level", ["info", "warn", "error", "success"]).default("info").notNull(),
+export const deploymentLogs = pgTable("deployment_logs", {
+  id: serial("id").primaryKey(),
+  deploymentId: integer("deploymentId").notNull(),
+  level: logLevelEnum("level").default("info").notNull(),
   message: text("message").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });

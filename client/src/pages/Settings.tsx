@@ -6,7 +6,7 @@ import { Settings as SettingsIcon, Key, Save, Eye, EyeOff, CheckCircle, AlertTri
 export default function Settings() {
   const [token, setToken] = useState("");
   const [accountId, setAccountId] = useState("");
-  const [baseDomain, setBaseDomain] = useState("Ademar.tognasca.com.br");
+  const [baseDomain, setBaseDomain] = useState("ademartognasca.com.br");
   const [showToken, setShowToken] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
@@ -28,7 +28,7 @@ export default function Settings() {
   useEffect(() => {
     if (settingsQuery.data) {
       setAccountId(settingsQuery.data.accountId || "");
-      setBaseDomain(settingsQuery.data.baseDomain || "Ademar.tognasca.com.br");
+      setBaseDomain(settingsQuery.data.baseDomain || "ademartognasca.com.br");
     }
   }, [settingsQuery.data]);
 
@@ -153,7 +153,7 @@ export default function Settings() {
                     value={baseDomain}
                     onChange={e => setBaseDomain(e.target.value)}
                     style={inputStyle}
-                    placeholder="Ademar.tognasca.com.br"
+                    placeholder="ademartognasca.com.br"
                   />
                   <p className="font-mono-tech text-xs mt-2 opacity-50" style={{ color: "oklch(0.65 0.06 230)" }}>
                     Domínio principal exibido no painel

@@ -78,7 +78,7 @@ export default function Dashboard() {
           <div>
             <h1 className="font-display text-2xl font-bold tracking-widest text-glow">DASHBOARD</h1>
             <p className="font-mono-tech text-xs text-muted-foreground mt-1">
-              CLOUDFLARE DNS MANAGEMENT // DOMÍNIO: ADEMAR.TOGNASCA.COM.BR
+              CLOUDFLARE DNS MANAGEMENT // DOMÍNIO: ademartognasca.com.br
             </p>
           </div>
         </div>

@@ -221,7 +221,7 @@ export default function DnsRecords() {
           <div>
             <h1 className="font-display text-2xl font-bold tracking-widest text-glow">DNS RECORDS</h1>
             <p className="font-mono-tech text-xs text-muted-foreground mt-1">
-              GERENCIAMENTO DE REGISTROS DNS // ADEMAR.TOGNASCA.COM.BR
+              GERENCIAMENTO DE REGISTROS DNS // ademartognasca.com.br
             </p>
           </div>
         </div>

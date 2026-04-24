@@ -32,7 +32,7 @@ export const cloudflareRouter = router({
     .input(z.object({
       apiToken: z.string().min(1, "Token obrigatório"),
       accountId: z.string().optional(),
-      baseDomain: z.string().default("Ademar.tognasca.com.br"),
+      baseDomain: z.string().default("ademartognasca.com.br"),
     }))
     .mutation(async ({ ctx, input }) => {
       let tokenToSave = input.apiToken;

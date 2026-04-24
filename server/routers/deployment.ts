@@ -2,45 +2,124 @@ import { protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import * as deploymentDb from "../deployment-db";
 import * as YAML from "yaml";
+import fs from "fs";
+import { spawn } from "child_process";
 
-// YAML Schema validation
+// ==========================
+// SCHEMAS
+// ==========================
 const YamlSiteSchema = z.object({
   name: z.string().min(1),
-  type: z.enum(["react", "angular", "mvc", "static", "node", "python"]),
-  port: z.number().int().positive(),
-  docker: z.boolean().default(true),
-  domain: z.string().min(1),
-  dockerfile: z.string().optional(),
-  buildCommand: z.string().optional(),
-  startCommand: z.string().optional(),
-  deploymentMethod: z.enum(["tunnel", "pages", "workers"]).default("tunnel"),
+  type: z.string(),
+  port: z.number(),
+  docker: z.boolean().default(false),
+  domain: z.string(),
+  deploymentMethod: z.string().default("tunnel"),
 });
 
 const YamlConfigSchema = z.object({
   sites: z.array(YamlSiteSchema),
 });
 
-type YamlSite = z.infer<typeof YamlSiteSchema>;
-type YamlConfig = z.infer<typeof YamlConfigSchema>;
+// ==========================
+// HELPERS
+// ==========================
+
+// 🔥 CONVERTE QUALQUER YAML → sites
+function parseYamlToSites(yamlContent: string) {
+  const parsed: any = YAML.parse(yamlContent);
+
+  // formato padrão
+  if (parsed.sites) {
+    return parsed.sites;
+  }
+
+  // formato cloudflare tunnel
+  if (parsed.ingress) {
+    return parsed.ingress
+      .filter((r: any) => r.hostname && r.service?.startsWith("http"))
+      .map((r: any) => {
+        const port = Number(r.service.split(":").pop());
+
+        return {
+          name: r.hostname.split(".")[0],
+          type: r.service.includes("3000") ? "react" : "node",
+          port,
+          docker: false,
+          domain: r.hostname,
+          deploymentMethod: "tunnel",
+        };
+      });
+  }
+
+  throw new Error("YAML inválido: formato não suportado");
+}
+
+// 🔥 GERA tunnel.yml AUTOMATICAMENTE
+function generateTunnelYaml(sites: any[]) {
+  return {
+    tunnel: process.env.TUNNEL_ID,
+    "credentials-file": process.env.TUNNEL_CREDENTIALS,
+    ingress: [
+      ...sites.map((s) => ({
+        hostname: s.domain,
+        service: `http://localhost:${s.port}`,
+      })),
+      { service: "http_status:404" },
+    ],
+  };
+}
+
+// 🔥 EXECUTA CLOUDFLARED COM LOGS
+function runTunnel(deploymentId: number) {
+  const process = spawn("C:\\cloudflared\\cloudflared.exe", [
+    "tunnel",
+    "--protocol",
+    "http2",
+    "run",
+    process.env.TUNNEL_ID!,
+  ]);
+
+  process.stdout.on("data", async (data) => {
+    await deploymentDb.saveDeploymentLog({
+      deploymentId,
+      level: "info",
+      message: data.toString(),
+    });
+  });
+
+  process.stderr.on("data", async (data) => {
+    await deploymentDb.saveDeploymentLog({
+      deploymentId,
+      level: "error",
+      message: data.toString(),
+    });
+  });
+}
+
+// ==========================
+// ROUTER
+// ==========================
 
 export const deploymentRouter = router({
-  // Upload and parse YAML
+  // ==========================
+  // UPLOAD YAML
+  // ==========================
   uploadYaml: protectedProcedure
     .input(z.object({ yamlContent: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
       try {
-        const parsed = YAML.parse(input.yamlContent);
-        const config = YamlConfigSchema.parse(parsed);
+        const sites = parseYamlToSites(input.yamlContent);
 
-        // Clear existing sites for this user
+        // limpa antigos
         const existing = await deploymentDb.getSitesConfig(ctx.user.id);
         for (const site of existing) {
           await deploymentDb.deleteSiteConfig(site.id);
         }
 
-        // Save new sites
         let count = 0;
-        for (const site of config.sites) {
+
+        for (const site of sites) {
           await deploymentDb.saveSiteConfig({
             userId: ctx.user.id,
             name: site.name,
@@ -48,25 +127,27 @@ export const deploymentRouter = router({
             port: site.port,
             dockerEnabled: site.docker ? 1 : 0,
             domain: site.domain,
-            dockerfile: site.dockerfile || null,
-            buildCommand: site.buildCommand || null,
-            startCommand: site.startCommand || null,
+            dockerfile: null,
+            buildCommand: null,
+            startCommand: null,
             status: "stopped",
-            deploymentMethod: site.deploymentMethod,
+            deploymentMethod: site.deploymentMethod || "tunnel",
           });
           count++;
         }
 
         return { success: true, count };
       } catch (err) {
-        throw new Error(`Erro ao fazer parse do YAML: ${err instanceof Error ? err.message : String(err)}`);
+        throw new Error(`Erro YAML: ${err instanceof Error ? err.message : String(err)}`);
       }
     }),
 
-  // List all sites
+  // ==========================
+  // LISTAR SITES
+  // ==========================
   listSites: protectedProcedure.query(async ({ ctx }) => {
     const sites = await deploymentDb.getSitesConfig(ctx.user.id);
-    return sites.map(s => ({
+    return sites.map((s) => ({
       id: s.id,
       name: s.name,
       type: s.type,
@@ -78,206 +159,98 @@ export const deploymentRouter = router({
     }));
   }),
 
-  // Get site details
-  getSiteDetails: protectedProcedure
-    .input(z.object({ siteId: z.number() }))
-    .query(async ({ ctx, input }) => {
-      const site = await deploymentDb.getSiteConfigById(ctx.user.id, input.siteId);
-      if (!site) throw new Error("Site não encontrado");
-      return site;
-    }),
-
-  // Start site (Docker container or local server)
-  startSite: protectedProcedure
-    .input(z.object({ siteId: z.number() }))
-    .mutation(async ({ ctx, input }) => {
-      const site = await deploymentDb.getSiteConfigById(ctx.user.id, input.siteId);
-      if (!site) throw new Error("Site não encontrado");
-
-      // Create deployment record
-      const deploymentResult = await deploymentDb.saveDeployment({
-        userId: ctx.user.id,
-        siteId: site.id,
-        status: "in_progress",
-        deploymentMethod: site.deploymentMethod as "tunnel" | "pages" | "workers",
-      });
-      const deploymentId = (deploymentResult as any).insertId || 1;
-
-      try {
-        // Log: starting
-        await deploymentDb.saveDeploymentLog({
-          deploymentId,
-          level: "info",
-          message: `Iniciando ${site.type} em porta ${site.port}...`,
-        });
-
-        // Simulate Docker start (in real implementation, would call Docker API)
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Log: success
-        await deploymentDb.saveDeploymentLog({
-          deploymentId,
-          level: "success",
-          message: `✓ ${site.name} iniciado com sucesso em http://localhost:${site.port}`,
-        });
-
-        // Update site status
-        await deploymentDb.updateSiteConfig(site.id, { status: "running" });
-
-        // Update deployment
-        await deploymentDb.updateDeployment(deploymentId, {
-          status: "success",
-          completedAt: new Date(),
-          tunnelUrl: `http://localhost:${site.port}`,
-        });
-
-        return { success: true, message: `${site.name} iniciado`, deploymentId };
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        await deploymentDb.saveDeploymentLog({
-          deploymentId,
-          level: "error",
-          message: `✗ Erro ao iniciar: ${errorMsg}`,
-        });
-        await deploymentDb.updateDeployment(deploymentId, {
-          status: "error",
-          errorMessage: errorMsg,
-          completedAt: new Date(),
-        });
-        throw err;
-      }
-    }),
-
-  // Stop site
-  stopSite: protectedProcedure
-    .input(z.object({ siteId: z.number() }))
-    .mutation(async ({ ctx, input }) => {
-      const site = await deploymentDb.getSiteConfigById(ctx.user.id, input.siteId);
-      if (!site) throw new Error("Site não encontrado");
-
-      await deploymentDb.updateSiteConfig(site.id, { status: "stopped" });
-      return { success: true, message: `${site.name} parado` };
-    }),
-
-  // Get deployment logs
-  getDeploymentLogs: protectedProcedure
-    .input(z.object({ deploymentId: z.number() }))
-    .query(async ({ ctx, input }) => {
-      return deploymentDb.getDeploymentLogs(input.deploymentId);
-    }),
-
-  // Deploy to Cloudflare Tunnel
+  // ==========================
+  // DEPLOY TUNNEL REAL
+  // ==========================
   deployToTunnel: protectedProcedure
     .input(z.object({ siteId: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      const site = await deploymentDb.getSiteConfigById(ctx.user.id, input.siteId);
-      if (!site) throw new Error("Site não encontrado");
+      const sites = await deploymentDb.getSitesConfig(ctx.user.id);
 
       const deploymentResult = await deploymentDb.saveDeployment({
         userId: ctx.user.id,
-        siteId: site.id,
+        siteId: input.siteId,
         status: "in_progress",
         deploymentMethod: "tunnel",
       });
+
       const deploymentId = (deploymentResult as any).insertId || 1;
 
       try {
         await deploymentDb.saveDeploymentLog({
           deploymentId,
           level: "info",
-          message: `Criando Cloudflare Tunnel para ${site.name}...`,
+          message: "Gerando tunnel.yml...",
         });
 
-        // Simulate tunnel creation
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        const yamlObj = generateTunnelYaml(sites);
+        const yamlStr = YAML.stringify(yamlObj);
 
-        const tunnelUrl = `${site.name}.tunnel.cloudflare.com`;
+        fs.writeFileSync("tunnel.yml", yamlStr);
 
         await deploymentDb.saveDeploymentLog({
           deploymentId,
-          level: "success",
-          message: `✓ Tunnel criado: ${tunnelUrl}`,
+          level: "info",
+          message: "Iniciando cloudflared...",
         });
+
+        runTunnel(deploymentId);
 
         await deploymentDb.updateDeployment(deploymentId, {
           status: "success",
-          tunnelUrl,
+          tunnelUrl: "http://localhost",
           completedAt: new Date(),
         });
 
-        return { success: true, tunnelUrl, deploymentId };
+        return {
+          success: true,
+          tunnelUrl: "Tunnel ativo",
+          deploymentId,
+        };
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
+
         await deploymentDb.updateDeployment(deploymentId, {
           status: "error",
           errorMessage: errorMsg,
           completedAt: new Date(),
         });
+
         throw err;
       }
     }),
 
-  // Deploy to Cloudflare Pages
-  deployToPages: protectedProcedure
+  startSite: protectedProcedure
     .input(z.object({ siteId: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      const site = await deploymentDb.getSiteConfigById(ctx.user.id, input.siteId);
-      if (!site) throw new Error("Site não encontrado");
-
-      if (!["react", "angular", "static"].includes(site.type)) {
-        throw new Error("Apenas React, Angular e sites estáticos podem ser deployados no Pages");
-      }
-
-      const deploymentResult = await deploymentDb.saveDeployment({
-        userId: ctx.user.id,
-        siteId: site.id,
-        status: "in_progress",
-        deploymentMethod: "pages",
+      await deploymentDb.updateSiteConfig(input.siteId, {
+        status: "running",
       });
-      const deploymentId = (deploymentResult as any).insertId || 1;
 
-      try {
-        await deploymentDb.saveDeploymentLog({
-          deploymentId,
-          level: "info",
-          message: `Fazendo build de ${site.name}...`,
-        });
-
-        // Simulate build
-        await new Promise(resolve => setTimeout(resolve, 3000));
-
-        await deploymentDb.saveDeploymentLog({
-          deploymentId,
-          level: "info",
-          message: `Upload para Cloudflare Pages...`,
-        });
-
-        // Simulate upload
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        const pagesUrl = `https://${site.domain}`;
-
-        await deploymentDb.saveDeploymentLog({
-          deploymentId,
-          level: "success",
-          message: `✓ Deployado em ${pagesUrl}`,
-        });
-
-        await deploymentDb.updateDeployment(deploymentId, {
-          status: "success",
-          tunnelUrl: pagesUrl,
-          completedAt: new Date(),
-        });
-
-        return { success: true, url: pagesUrl, deploymentId };
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        await deploymentDb.updateDeployment(deploymentId, {
-          status: "error",
-          errorMessage: errorMsg,
-          completedAt: new Date(),
-        });
-        throw err;
-      }
+      return { success: true };
     }),
+
+  stopSite: protectedProcedure
+    .input(z.object({ siteId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      await deploymentDb.updateSiteConfig(input.siteId, {
+        status: "stopped",
+      });
+
+      return { success: true };
+    }),
+  getDeploymentLogs: protectedProcedure
+    .input(z.object({ deploymentId: z.number() }))
+    .query(async ({ input }) => {
+      const logs = await deploymentDb.getDeploymentLogs(input.deploymentId);
+
+      return logs.map((log) => ({
+        id: log.id,
+        level: log.level,
+        message: log.message,
+        createdAt: log.createdAt,
+      }));
+    }),
+
+
 });

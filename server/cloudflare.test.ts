@@ -51,7 +51,7 @@ describe("cloudflare.hasToken", () => {
   it("returns hasToken: true when token is set", async () => {
     vi.mocked(db.getCfSettings).mockResolvedValue({
       id: 1, userId: 42, apiToken: "my-secret-token", accountId: null,
-      baseDomain: "Ademar.tognasca.com.br", createdAt: new Date(), updatedAt: new Date(),
+      baseDomain: "ademartognasca.com.br", createdAt: new Date(), updatedAt: new Date(),
     });
     const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
@@ -74,7 +74,7 @@ describe("cloudflare.getSettings", () => {
   it("masks the API token in response", async () => {
     vi.mocked(db.getCfSettings).mockResolvedValue({
       id: 1, userId: 42, apiToken: "abcdefgh1234", accountId: null,
-      baseDomain: "Ademar.tognasca.com.br", createdAt: new Date(), updatedAt: new Date(),
+      baseDomain: "ademartognasca.com.br", createdAt: new Date(), updatedAt: new Date(),
     });
     const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
@@ -93,7 +93,7 @@ describe("cloudflare.saveSettings", () => {
     const caller = appRouter.createCaller(ctx);
     const result = await caller.cloudflare.saveSettings({
       apiToken: "new-token-xyz",
-      baseDomain: "Ademar.tognasca.com.br",
+      baseDomain: "ademartognasca.com.br",
     });
     expect(result).toEqual({ success: true });
     expect(db.saveCfSettings).toHaveBeenCalledWith(
@@ -104,14 +104,14 @@ describe("cloudflare.saveSettings", () => {
   it("preserves existing token when __KEEP__ is sent", async () => {
     vi.mocked(db.getCfSettings).mockResolvedValue({
       id: 1, userId: 42, apiToken: "existing-token", accountId: null,
-      baseDomain: "Ademar.tognasca.com.br", createdAt: new Date(), updatedAt: new Date(),
+      baseDomain: "ademartognasca.com.br", createdAt: new Date(), updatedAt: new Date(),
     });
     vi.mocked(db.saveCfSettings).mockResolvedValue(undefined);
     const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
     const result = await caller.cloudflare.saveSettings({
       apiToken: "__KEEP__",
-      baseDomain: "Ademar.tognasca.com.br",
+      baseDomain: "ademartognasca.com.br",
     });
     expect(result).toEqual({ success: true });
     expect(db.saveCfSettings).toHaveBeenCalledWith(
@@ -152,7 +152,7 @@ describe("cloudflare.executeCommand", () => {
   it("returns help output for 'help' command", async () => {
     vi.mocked(db.getCfSettings).mockResolvedValue({
       id: 1, userId: 42, apiToken: "valid-token", accountId: null,
-      baseDomain: "Ademar.tognasca.com.br", createdAt: new Date(), updatedAt: new Date(),
+      baseDomain: "ademartognasca.com.br", createdAt: new Date(), updatedAt: new Date(),
     });
     vi.mocked(db.saveCommandHistory).mockResolvedValue(undefined as never);
     const ctx = createAuthContext();
@@ -165,7 +165,7 @@ describe("cloudflare.executeCommand", () => {
   it("returns error for unknown command", async () => {
     vi.mocked(db.getCfSettings).mockResolvedValue({
       id: 1, userId: 42, apiToken: "valid-token", accountId: null,
-      baseDomain: "Ademar.tognasca.com.br", createdAt: new Date(), updatedAt: new Date(),
+      baseDomain: "ademartognasca.com.br", createdAt: new Date(), updatedAt: new Date(),
     });
     vi.mocked(db.saveCommandHistory).mockResolvedValue(undefined as never);
     const ctx = createAuthContext();
@@ -178,7 +178,7 @@ describe("cloudflare.executeCommand", () => {
   it("returns __CLEAR__ output for 'clear' command", async () => {
     vi.mocked(db.getCfSettings).mockResolvedValue({
       id: 1, userId: 42, apiToken: "valid-token", accountId: null,
-      baseDomain: "Ademar.tognasca.com.br", createdAt: new Date(), updatedAt: new Date(),
+      baseDomain: "ademartognasca.com.br", createdAt: new Date(), updatedAt: new Date(),
     });
     vi.mocked(db.saveCommandHistory).mockResolvedValue(undefined as never);
     const ctx = createAuthContext();
@@ -195,7 +195,7 @@ describe("cloudflare.executeCommand - defaultZoneId", () => {
   it("throws error when dns list is called without zone_id and no defaultZoneId", async () => {
     vi.mocked(db.getCfSettings).mockResolvedValue({
       id: 1, userId: 42, apiToken: "valid-token", accountId: null,
-      baseDomain: "Ademar.tognasca.com.br", createdAt: new Date(), updatedAt: new Date(),
+      baseDomain: "ademartognasca.com.br", createdAt: new Date(), updatedAt: new Date(),
     });
     vi.mocked(db.saveCommandHistory).mockResolvedValue(undefined as never);
     const ctx = createAuthContext();
@@ -208,7 +208,7 @@ describe("cloudflare.executeCommand - defaultZoneId", () => {
   it("includes defaultZoneId info in help output when provided", async () => {
     vi.mocked(db.getCfSettings).mockResolvedValue({
       id: 1, userId: 42, apiToken: "valid-token", accountId: null,
-      baseDomain: "Ademar.tognasca.com.br", createdAt: new Date(), updatedAt: new Date(),
+      baseDomain: "ademartognasca.com.br", createdAt: new Date(), updatedAt: new Date(),
     });
     vi.mocked(db.saveCommandHistory).mockResolvedValue(undefined as never);
     const ctx = createAuthContext();
@@ -224,7 +224,7 @@ describe("cloudflare.executeCommand - defaultZoneId", () => {
   it("does not include zone info in help when no defaultZoneId", async () => {
     vi.mocked(db.getCfSettings).mockResolvedValue({
       id: 1, userId: 42, apiToken: "valid-token", accountId: null,
-      baseDomain: "Ademar.tognasca.com.br", createdAt: new Date(), updatedAt: new Date(),
+      baseDomain: "ademartognasca.com.br", createdAt: new Date(), updatedAt: new Date(),
     });
     vi.mocked(db.saveCommandHistory).mockResolvedValue(undefined as never);
     const ctx = createAuthContext();

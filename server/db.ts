@@ -1,14 +1,22 @@
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
-import { cfSettings, commandHistory, InsertCfSettings, InsertCommandHistory, InsertUser, users } from "../drizzle/schema";
-import { ENV } from './_core/env';
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import {
+  cfSettings,
+  commandHistory,
+  type InsertCfSettings,
+  type InsertCommandHistory,
+  type InsertUser,
+  users,
+} from "../drizzle/schema";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      const client = postgres(process.env.DATABASE_URL);
+      _db = drizzle(client);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -20,10 +28,14 @@ export async function getDb() {
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) throw new Error("User openId is required for upsert");
   const db = await getDb();
-  if (!db) { console.warn("[Database] Cannot upsert user: database not available"); return; }
+  if (!db) {
+    console.warn("[Database] Cannot upsert user: database not available");
+    return;
+  }
   try {
     const values: InsertUser = { openId: user.openId };
     const updateSet: Record<string, unknown> = {};
+
     const textFields = ["name", "email", "loginMethod"] as const;
     type TextField = (typeof textFields)[number];
     const assignNullable = (field: TextField) => {
@@ -34,12 +46,26 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet[field] = normalized;
     };
     textFields.forEach(assignNullable);
-    if (user.lastSignedIn !== undefined) { values.lastSignedIn = user.lastSignedIn; updateSet.lastSignedIn = user.lastSignedIn; }
-    if (user.role !== undefined) { values.role = user.role; updateSet.role = user.role; }
-    else if (user.openId === ENV.ownerOpenId) { values.role = 'admin'; updateSet.role = 'admin'; }
+
+    if (user.lastSignedIn !== undefined) {
+      values.lastSignedIn = user.lastSignedIn;
+      updateSet.lastSignedIn = user.lastSignedIn;
+    }
+    if (user.role !== undefined) {
+      values.role = user.role;
+      updateSet.role = user.role;
+    }
+
     if (!values.lastSignedIn) values.lastSignedIn = new Date();
     if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
-    await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
+
+    await db
+      .insert(users)
+      .values(values)
+      .onConflictDoUpdate({
+        target: users.openId,
+        set: updateSet,
+      });
   } catch (error) {
     console.error("[Database] Failed to upsert user:", error);
     throw error;
@@ -49,7 +75,11 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.openId, openId))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
@@ -58,17 +88,31 @@ export async function getUserByOpenId(openId: string) {
 export async function getCfSettings(userId: number) {
   const db = await getDb();
   if (!db) return null;
-  const result = await db.select().from(cfSettings).where(eq(cfSettings.userId, userId)).limit(1);
+  const result = await db
+    .select()
+    .from(cfSettings)
+    .where(eq(cfSettings.userId, userId))
+    .limit(1);
   return result.length > 0 ? result[0] : null;
 }
 
 export async function saveCfSettings(data: InsertCfSettings) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const existing = await db.select().from(cfSettings).where(eq(cfSettings.userId, data.userId)).limit(1);
+  const existing = await db
+    .select()
+    .from(cfSettings)
+    .where(eq(cfSettings.userId, data.userId))
+    .limit(1);
   if (existing.length > 0) {
-    await db.update(cfSettings)
-      .set({ apiToken: data.apiToken, accountId: data.accountId, baseDomain: data.baseDomain })
+    await db
+      .update(cfSettings)
+      .set({
+        apiToken: data.apiToken,
+        accountId: data.accountId,
+        baseDomain: data.baseDomain,
+        updatedAt: new Date(),
+      })
       .where(eq(cfSettings.userId, data.userId));
   } else {
     await db.insert(cfSettings).values(data);
@@ -80,20 +124,29 @@ export async function saveCfSettings(data: InsertCfSettings) {
 export async function saveCommandHistory(data: InsertCommandHistory) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(commandHistory).values(data);
-  return result;
+  const result = await db.insert(commandHistory).values(data).returning();
+  return result[0];
 }
 
-export async function updateCommandHistory(id: number, output: string, status: "success" | "error") {
+export async function updateCommandHistory(
+  id: number,
+  output: string,
+  status: "success" | "error"
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.update(commandHistory).set({ output, status }).where(eq(commandHistory.id, id));
+  await db
+    .update(commandHistory)
+    .set({ output, status })
+    .where(eq(commandHistory.id, id));
 }
 
 export async function getCommandHistory(userId: number, limit = 50) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(commandHistory)
+  return db
+    .select()
+    .from(commandHistory)
     .where(eq(commandHistory.userId, userId))
     .limit(limit);
 }

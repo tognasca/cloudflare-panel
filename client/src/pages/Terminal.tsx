@@ -15,7 +15,7 @@ type Zone = { id: string; name: string; status: string; paused: boolean };
 
 const HELP_TEXT = `╔══════════════════════════════════════════════════════════════╗
 ║         CF PANEL - CLOUDFLARE CLI TERMINAL v2.0              ║
-║         DOMÍNIO BASE: ademar.tognasca.com.br                 ║
+║         DOMÍNIO BASE: ademartognasca.com.br                 ║
 ╚══════════════════════════════════════════════════════════════╝
 
 COMANDOS DISPONÍVEIS:
@@ -257,7 +257,7 @@ export default function Terminal() {
               {entry.command && (
                 <div className="flex items-center gap-2 mb-1">
                   <span className="terminal-prompt font-bold">
-                    [cf-panel@ademar.tognasca.com.br]$
+                    [cf-panel@ademartognasca.com.br]$
                   </span>
                   <span className="font-mono-tech text-sm" style={{ color: "oklch(0.92 0.04 220)" }}>
                     {entry.command}
@@ -285,7 +285,7 @@ export default function Terminal() {
           style={{ borderColor: "oklch(0.22 0.08 250)", background: "oklch(0.10 0.06 250)" }}
         >
           <span className="terminal-prompt font-bold text-sm whitespace-nowrap">
-            [cf-panel@ademar.tognasca.com.br]$
+            [cf-panel@ademartognasca.com.br]$
           </span>
           <input
             ref={inputRef}

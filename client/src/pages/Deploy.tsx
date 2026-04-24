@@ -334,21 +334,21 @@ export default function Deploy() {
     type: react
     port: 3000
     docker: true
-    domain: site1.ademar.tognasca.com.br
+    domain: site1.ademartognasca.com.br
     deploymentMethod: tunnel
     
   - name: meu-site-angular
     type: angular
     port: 4200
     docker: true
-    domain: site2.ademar.tognasca.com.br
+    domain: site2.ademartognasca.com.br
     deploymentMethod: pages
     
   - name: meu-mvc
     type: mvc
     port: 8080
     docker: true
-    domain: site3.ademar.tognasca.com.br
+    domain: site3.ademartognasca.com.br
     deploymentMethod: tunnel`}
         </pre>
       </div>

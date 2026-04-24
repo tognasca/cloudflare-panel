@@ -3,7 +3,7 @@ CREATE TABLE `cf_settings` (
 	`userId` int NOT NULL,
 	`apiToken` text,
 	`accountId` varchar(64),
-	`baseDomain` varchar(255) DEFAULT 'Ademar.tognasca.com.br',
+	`baseDomain` varchar(255) DEFAULT 'ademartognasca.com.br',
 	`createdAt` timestamp NOT NULL DEFAULT (now()),
 	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
 	CONSTRAINT `cf_settings_id` PRIMARY KEY(`id`)

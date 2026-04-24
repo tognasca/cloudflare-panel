@@ -41,7 +41,7 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false,
-          "default": "'Ademar.tognasca.com.br'"
+          "default": "'ademartognasca.com.br'"
         },
         "createdAt": {
           "name": "createdAt",
