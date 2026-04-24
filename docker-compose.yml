@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  frontend:
+    image: node:22
+    working_dir: /app
+    volumes:
+      - .:/app
+      - frontend_node_modules:/app/node_modules
+    command: sh -c "corepack enable && corepack prepare pnpm@latest --activate && pnpm install && pnpm dev:client -- --host 0.0.0.0 --port 5173"
+    ports:
+      - "24082:5173"
+    environment:
+      - BACKEND_URL=http://backend:3001
+      - VITE_BACKEND_URL=http://backend:3001
+    depends_on:
+      - backend
+
+  backend:
+    image: node:22
+    working_dir: /app
+    volumes:
+      - .:/app
+      - backend_node_modules:/app/node_modules
+    command: sh -c "corepack enable && corepack prepare pnpm@latest --activate && pnpm install && pnpm dev:server"
+    ports:
+      - "3001:3001"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3001
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    command: tunnel --protocol http2 --edge-ip-version 4 --config /etc/cloudflared/config.yml run
+    volumes:
+      - C:/Users/adema/.cloudflared:/etc/cloudflared
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - frontend
+      - backend
+    restart: always
+
+volumes:
+  frontend_node_modules:
+  backend_node_modules:
