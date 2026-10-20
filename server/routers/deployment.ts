@@ -151,6 +151,7 @@ export const deploymentRouter = router({
 
       const site = await deploymentDb.getSiteConfigById(ctx.user.id, input.siteId);
       if (!site) throw new Error("Site não encontrado");
+      if (site.deploymentMethod !== "tunnel") throw new Error("O site não utiliza Tunnel");
       if (!process.env.TUNNEL_ID || !process.env.TUNNEL_CREDENTIALS) throw new Error("Configure TUNNEL_ID e TUNNEL_CREDENTIALS");
       const deploymentResult = await deploymentDb.saveDeployment({
         userId: String(ctx.user.id),
@@ -172,6 +173,7 @@ export const deploymentRouter = router({
         const yamlStr = YAML.stringify(yamlObj);
 
         const configPath = path.resolve(process.env.TUNNEL_CONFIG_PATH || "tunnel.yml");
+        fs.mkdirSync(path.dirname(configPath), { recursive: true });
         fs.writeFileSync(configPath, yamlStr, { flag: "w" });
 
         await deploymentDb.saveDeploymentLog({
@@ -226,7 +228,7 @@ export const deploymentRouter = router({
   getDeploymentLogs: protectedProcedure
     .input(z.object({ deploymentId: z.number() }))
     .query(async ({ ctx, input }) => {
-      const deployments = await deploymentDb.getDeployments(ctx.user.id);
+      const deployments = await deploymentDb.getDeployments(ctx.user.id, 1000);
       if (!deployments.some(d => d.id === input.deploymentId)) throw new Error("Deployment não encontrado");
       const logs = await deploymentDb.getDeploymentLogs(input.deploymentId);
 
