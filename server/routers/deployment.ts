@@ -4,7 +4,6 @@ import * as deploymentDb from "../deployment-db";
 import * as YAML from "yaml";
 import fs from "node:fs";
 import path from "node:path";
-import { spawn } from "node:child_process";
 
 // ==========================
 // SCHEMAS
@@ -72,39 +71,6 @@ function generateTunnelYaml(sites: any[]) {
 }
 
 // 🔥 EXECUTA CLOUDFLARED COM LOGS
-function processEnvBinary() {
-  return process.env.CLOUDFLARED_BIN || "cloudflared";
-}
-
-function runTunnel(deploymentId: number) {
-  const process = spawn("C:\\cloudflared\\cloudflared.exe", [
-    "tunnel",
-    "--config",
-    path.resolve(process.env.TUNNEL_CONFIG_PATH || "tunnel.yml"),
-    "--protocol",
-    "http2",
-    "run",
-    process.env.TUNNEL_ID!,
-  ]);
-
-  process.on("error", (error) => console.error("[cloudflared]", error));
-  process.stdout.on("data", async (data) => {
-    await deploymentDb.saveDeploymentLog({
-      deploymentId,
-      level: "info",
-      message: data.toString(),
-    });
-  });
-
-  process.stderr.on("data", async (data) => {
-    await deploymentDb.saveDeploymentLog({
-      deploymentId,
-      level: "error",
-      message: data.toString(),
-    });
-  });
-}
-
 // ==========================
 // ROUTER
 // ==========================
@@ -219,9 +185,8 @@ export const deploymentRouter = router({
         await deploymentDb.saveDeploymentLog({ deploymentId, level: "warn", message: "Configuração gerada. Inicie/reinicie o serviço cloudflared do host e confirme a conectividade." });
 
         await deploymentDb.updateDeployment(deploymentId, {
-          status: "success",
+          status: "in_progress",
           tunnelUrl: `https://${site.domain}`,
-          completedAt: new Date(),
         });
 
         return {
