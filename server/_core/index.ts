@@ -19,7 +19,7 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "2mb", extended: true }));
   app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
   registerStorageProxy(app);
-  if (process.env.OAUTH_SERVER_URL) registerOAuthRoutes(app);
+  registerOAuthRoutes(app);
   app.use("/api/trpc", createExpressMiddleware({
     router: appRouter,
     createContext,
