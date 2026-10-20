@@ -73,7 +73,7 @@ export default function Deploy() {
     try {
       const result = await startSiteMut.mutateAsync({ siteId });
       setSelectedSiteId(siteId);
-      setSelectedDeploymentId(result.deploymentId || siteId);
+      setSelectedDeploymentId(result.deploymentId || null);
       setShowLogViewer(true);
       toast.success(`✓ ${siteName} iniciado`);
       listSitesQuery.refetch();
@@ -96,9 +96,9 @@ export default function Deploy() {
     try {
       const result = await deployToTunnelMut.mutateAsync({ siteId });
       setSelectedSiteId(siteId);
-      setSelectedDeploymentId(result.deploymentId || siteId);
+      setSelectedDeploymentId(result.deploymentId || null);
       setShowLogViewer(true);
-      toast.success(`✓ Tunnel criado: ${result.tunnelUrl}`);
+      toast.info(`Configuração preparada: ${result.tunnelUrl}. Reinicie o serviço cloudflared do host e valide a rota.`);
       listSitesQuery.refetch();
     } catch (err) {
       toast.error(`Erro: ${err instanceof Error ? err.message : String(err)}`);
@@ -109,7 +109,7 @@ export default function Deploy() {
     try {
       const result = await deployToPagesMut.mutateAsync({ siteId });
       setSelectedSiteId(siteId);
-      setSelectedDeploymentId(result.deploymentId || siteId);
+      setSelectedDeploymentId(result.deploymentId || null);
       setShowLogViewer(true);
       toast.success(`✓ Deployado em ${result.url}`);
       listSitesQuery.refetch();
