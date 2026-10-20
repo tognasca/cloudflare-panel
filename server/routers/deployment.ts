@@ -10,11 +10,11 @@ import path from "node:path";
 // ==========================
 const YamlSiteSchema = z.object({
   name: z.string().min(1),
-  type: z.string(),
-  port: z.number(),
+  type: z.enum(["react", "angular", "mvc", "static", "node", "python"]),
+  port: z.number().int().min(1).max(65535),
   docker: z.boolean().default(false),
-  domain: z.string(),
-  deploymentMethod: z.string().default("tunnel"),
+  domain: z.string().min(1),
+  deploymentMethod: z.enum(["tunnel", "pages", "workers"]).default("tunnel"),
 });
 
 const YamlConfigSchema = z.object({
@@ -43,7 +43,7 @@ function parseYamlToSites(yamlContent: string) {
 
         return {
           name: r.hostname.split(".")[0],
-          type: r.service.includes("3000") ? "react" : "node",
+          type: "node" as const,
           port,
           docker: false,
           domain: r.hostname,
@@ -177,7 +177,7 @@ export const deploymentRouter = router({
         await deploymentDb.saveDeploymentLog({
           deploymentId,
           level: "info",
-          message: "Iniciando cloudflared...",
+          message: "Arquivo de configuração gerado; reinício manual necessário",
         });
 
         // A configuração é gerada, mas a disponibilidade deve ser confirmada por health-check externo.
