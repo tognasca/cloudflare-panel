@@ -91,7 +91,7 @@ export async function getCfSettings(userId: number) {
   const result = await db
     .select()
     .from(cfSettings)
-    .where(eq(cfSettings.userId, userId))
+    .where(eq(cfSettings.userId, String(userId)))
     .limit(1);
   return result.length > 0 ? result[0] : null;
 }
@@ -147,6 +147,6 @@ export async function getCommandHistory(userId: number, limit = 50) {
   return db
     .select()
     .from(commandHistory)
-    .where(eq(commandHistory.userId, userId))
+    .where(eq(commandHistory.userId, String(userId)))
     .limit(limit);
 }

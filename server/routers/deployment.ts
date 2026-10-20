@@ -2,19 +2,19 @@ import { protectedProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import * as deploymentDb from "../deployment-db";
 import * as YAML from "yaml";
-import fs from "fs";
-import { spawn } from "child_process";
+import fs from "node:fs";
+import path from "node:path";
 
 // ==========================
 // SCHEMAS
 // ==========================
 const YamlSiteSchema = z.object({
   name: z.string().min(1),
-  type: z.string(),
-  port: z.number(),
+  type: z.enum(["react", "angular", "mvc", "static", "node", "python"]),
+  port: z.number().int().min(1).max(65535),
   docker: z.boolean().default(false),
-  domain: z.string(),
-  deploymentMethod: z.string().default("tunnel"),
+  domain: z.string().min(1),
+  deploymentMethod: z.enum(["tunnel", "pages", "workers"]).default("tunnel"),
 });
 
 const YamlConfigSchema = z.object({
@@ -30,26 +30,26 @@ function parseYamlToSites(yamlContent: string) {
   const parsed: any = YAML.parse(yamlContent);
 
   // formato padrão
-  if (parsed.sites) {
-    return parsed.sites;
+  if (Array.isArray(parsed?.sites)) {
+    return z.array(YamlSiteSchema).parse(parsed.sites);
   }
 
   // formato cloudflare tunnel
-  if (parsed.ingress) {
-    return parsed.ingress
-      .filter((r: any) => r.hostname && r.service?.startsWith("http"))
+  if (Array.isArray(parsed?.ingress)) {
+    return z.array(YamlSiteSchema).parse(parsed.ingress
+      .filter((r: any) => typeof r.hostname === "string" && typeof r.service === "string" && /^https?:\/\//.test(r.service))
       .map((r: any) => {
-        const port = Number(r.service.split(":").pop());
+        const port = Number(new URL(r.service).port || (r.service.startsWith("https:") ? 443 : 80));
 
         return {
           name: r.hostname.split(".")[0],
-          type: r.service.includes("3000") ? "react" : "node",
+          type: "node" as const,
           port,
           docker: false,
           domain: r.hostname,
           deploymentMethod: "tunnel",
         };
-      });
+      }));
   }
 
   throw new Error("YAML inválido: formato não suportado");
@@ -71,32 +71,6 @@ function generateTunnelYaml(sites: any[]) {
 }
 
 // 🔥 EXECUTA CLOUDFLARED COM LOGS
-function runTunnel(deploymentId: number) {
-  const process = spawn("C:\\cloudflared\\cloudflared.exe", [
-    "tunnel",
-    "--protocol",
-    "http2",
-    "run",
-    process.env.TUNNEL_ID!,
-  ]);
-
-  process.stdout.on("data", async (data) => {
-    await deploymentDb.saveDeploymentLog({
-      deploymentId,
-      level: "info",
-      message: data.toString(),
-    });
-  });
-
-  process.stderr.on("data", async (data) => {
-    await deploymentDb.saveDeploymentLog({
-      deploymentId,
-      level: "error",
-      message: data.toString(),
-    });
-  });
-}
-
 // ==========================
 // ROUTER
 // ==========================
@@ -121,7 +95,7 @@ export const deploymentRouter = router({
 
         for (const site of sites) {
           await deploymentDb.saveSiteConfig({
-            userId: ctx.user.id,
+            userId: String(ctx.user.id),
             name: site.name,
             type: site.type,
             port: site.port,
@@ -140,6 +114,14 @@ export const deploymentRouter = router({
       } catch (err) {
         throw new Error(`Erro YAML: ${err instanceof Error ? err.message : String(err)}`);
       }
+    }),
+
+  deployToPages: protectedProcedure
+    .input(z.object({ siteId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const site = await deploymentDb.getSiteConfigById(ctx.user.id, input.siteId);
+      if (!site) throw new Error("Site não encontrado");
+      throw new Error("Cloudflare Pages ainda não está integrado. Nenhum deploy foi realizado.");
     }),
 
   // ==========================
@@ -167,14 +149,18 @@ export const deploymentRouter = router({
     .mutation(async ({ ctx, input }) => {
       const sites = await deploymentDb.getSitesConfig(ctx.user.id);
 
+      const site = await deploymentDb.getSiteConfigById(ctx.user.id, input.siteId);
+      if (!site) throw new Error("Site não encontrado");
+      if (site.deploymentMethod !== "tunnel") throw new Error("O site não utiliza Tunnel");
+      if (!process.env.TUNNEL_ID || !process.env.TUNNEL_CREDENTIALS) throw new Error("Configure TUNNEL_ID e TUNNEL_CREDENTIALS");
       const deploymentResult = await deploymentDb.saveDeployment({
-        userId: ctx.user.id,
+        userId: String(ctx.user.id),
         siteId: input.siteId,
         status: "in_progress",
         deploymentMethod: "tunnel",
       });
 
-      const deploymentId = (deploymentResult as any).insertId || 1;
+      const deploymentId = deploymentResult.id;
 
       try {
         await deploymentDb.saveDeploymentLog({
@@ -186,25 +172,29 @@ export const deploymentRouter = router({
         const yamlObj = generateTunnelYaml(sites);
         const yamlStr = YAML.stringify(yamlObj);
 
-        fs.writeFileSync("tunnel.yml", yamlStr);
+        const configPath = path.resolve(process.env.TUNNEL_CONFIG_PATH || "tunnel.yml");
+        fs.mkdirSync(path.dirname(configPath), { recursive: true });
+        fs.writeFileSync(configPath, yamlStr, { flag: "w" });
 
         await deploymentDb.saveDeploymentLog({
           deploymentId,
           level: "info",
-          message: "Iniciando cloudflared...",
+          message: "Arquivo de configuração gerado; reinício manual necessário",
         });
 
-        runTunnel(deploymentId);
+        // A configuração é gerada, mas a disponibilidade deve ser confirmada por health-check externo.
+        // Não iniciar um processo órfão nem registrar sucesso fictício.
+        await deploymentDb.saveDeploymentLog({ deploymentId, level: "warn", message: "Configuração gerada. Inicie/reinicie o serviço cloudflared do host e confirme a conectividade." });
 
         await deploymentDb.updateDeployment(deploymentId, {
-          status: "success",
-          tunnelUrl: "http://localhost",
-          completedAt: new Date(),
+          status: "in_progress",
+          tunnelUrl: `https://${site.domain}`,
         });
 
         return {
           success: true,
-          tunnelUrl: "Tunnel ativo",
+          tunnelUrl: `https://${site.domain}`,
+          requiresServiceRestart: true,
           deploymentId,
         };
       } catch (err) {
@@ -223,25 +213,23 @@ export const deploymentRouter = router({
   startSite: protectedProcedure
     .input(z.object({ siteId: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      await deploymentDb.updateSiteConfig(input.siteId, {
-        status: "running",
-      });
-
-      return { success: true };
+      const site = await deploymentDb.getSiteConfigById(ctx.user.id, input.siteId);
+      if (!site) throw new Error("Site não encontrado");
+      throw new Error("Iniciar site requer integração com o gerenciador de serviços; nenhuma alteração de status foi realizada.");
     }),
 
   stopSite: protectedProcedure
     .input(z.object({ siteId: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      await deploymentDb.updateSiteConfig(input.siteId, {
-        status: "stopped",
-      });
-
-      return { success: true };
+      const site = await deploymentDb.getSiteConfigById(ctx.user.id, input.siteId);
+      if (!site) throw new Error("Site não encontrado");
+      throw new Error("Parar site requer integração com o gerenciador de serviços; nenhuma alteração de status foi realizada.");
     }),
   getDeploymentLogs: protectedProcedure
     .input(z.object({ deploymentId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      const deployments = await deploymentDb.getDeployments(ctx.user.id, 1000);
+      if (!deployments.some(d => d.id === input.deploymentId)) throw new Error("Deployment não encontrado");
       const logs = await deploymentDb.getDeploymentLogs(input.deploymentId);
 
       return logs.map((log) => ({
